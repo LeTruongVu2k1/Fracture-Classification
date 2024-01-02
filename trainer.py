@@ -42,7 +42,7 @@ class CheXpertTrainer_Asymmetric():
         checkpoint = args.checkpoint
         mode = args.mode
         device = args.device
-        model_path = args.model_path
+        model_path = args.path
         weighted_class = args.weighted_score
         p_mixup = args.p_mixup
         is_triple = args.is_triple

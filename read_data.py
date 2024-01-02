@@ -12,10 +12,10 @@ if __name__  == '__main__':
     parser.add_argument('--csv_dir', type=str, default='./csv_files', help='Directory contains csv files')
     args = parser.parse_args()
 
-    # os.makedirs('/root/.kaggle', exist_ok=True)
-    # shutil.copy('/content/drive/MyDrive/Colab Notebooks/kaggle_API_credetial/kaggle.json', '/root/.kaggle')
+    os.makedirs('/root/.kaggle', exist_ok=True)
+    shutil.copy('/content/drive/MyDrive/Colab Notebooks/kaggle_API_credetial/kaggle.json', '/root/.kaggle')
 
-    # os.system('kaggle datasets download ashery/chexpert --unzip -p dataset --quiet') # downloading kaggle dataset to "dataset" directory
+    os.system('kaggle datasets download ashery/chexpert --unzip -p dataset --quiet') # downloading kaggle dataset to "dataset" directory
 
     removed_columns = ['Enlarged Cardiomediastinum', 'Cardiomegaly', 'Lung Opacity',
         'Lung Lesion', 'Edema', 'Consolidation', 'Pneumonia', 'Atelectasis',
@@ -25,13 +25,16 @@ if __name__  == '__main__':
     val_data = pd.read_csv('dataset/valid.csv')
     fracture_val_data = val_data.drop(removed_columns,axis=1)
     fracture_val_data['Path'] = fracture_val_data['Path'].map(lambda x: x.replace('CheXpert-v1.0-small', 'dataset'))
+    fracture_val_data['path_new'] = fracture_val_data['Path']
     U_zeroes_val = fracture_val_data.replace(-1, 1)
     # U_zeroes_val.dropna(axis=0, subset=['Fracture'], inplace=True)
     U_zeroes_val.fillna(0, inplace=True)
 
     train_data = pd.read_csv('dataset/train.csv')
+    train_data['path_new'] = train_data['Path']
     fracture_train_data = train_data.drop(removed_columns,axis=1)
     fracture_train_data['Path'] = fracture_train_data['Path'].map(lambda x: x.replace('CheXpert-v1.0-small', 'dataset'))
+    fracture_train_data['path_new'] = fracture_train_data['Path']
     U_zeroes_train = fracture_train_data.replace(-1, 1)
     # U_zeroes_val.dropna(axis=0, subset=['Fracture'], inplace=True)
     U_zeroes_train.fillna(0, inplace=True)

@@ -192,7 +192,8 @@ class DenseNet161_trick_v2(nn.Module):
         pred = self.sigmoid(logits)
 
         return pred    
-    
+
+################################################################ Trick Model with Shared Block ################################################################    
 class DenseNet161_trick_v3(nn.Module):
     """Model modified.
     The architecture of our model is the same as standard DenseNet161
@@ -250,6 +251,56 @@ class DenseNet161_trick_v3(nn.Module):
             return logits        
         return self.sigmoid(logits)  
 
+
+################################################################ Trick Model with Triple Loss ################################################################    
+class DenseNet161_trick_v4(nn.Module):
+    """Model modified.
+    The architecture of our model is the same as standard DenseNet161
+    except the classifier layer which has an additional sigmoid function.
+    """
+    def __init__(self, out_size):
+        super(DenseNet161_trick_v2, self).__init__()
+        # self.densenet161 = torchvision.models.densenet161(pretrained = False) # `pretrained=False` is deprecated
+        self.weights = torchvision.models.DenseNet161_Weights.DEFAULT
+        self.densenet161 = torchvision.models.densenet161(weights=self.weights)
+        self.features_extraction = self.densenet161.features
+
+        self.avgpool = torch.nn.AdaptiveAvgPool2d(1)
+
+        in_features = self.densenet161.features.norm5.num_features
+        self.linear = nn.Linear(in_features, out_size) # stack of 2 images during training
+        
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, frontal_lateral_images, mode='inference'):
+        if mode != 'train':
+#             frontal_lateral_images = torch.cat((frontal_lateral_images, frontal_lateral_images), 1)
+            frontal_lateral_images = torch.cat((frontal_lateral_images, torch.zeros_like(frontal_lateral_images)), 1)
+    
+        num_images = frontal_lateral_images.shape[1] // 3
+        vectors = []
+
+        for i in range(num_images):
+            start_dim = i * 3
+            end_dim = i * 3 + 3
+            image = frontal_lateral_images[:,start_dim:end_dim,:,:]
+            x = self.features_extraction(image)
+            x = self.avgpool(x)
+            x = x.squeeze()
+            vectors.append(x)
+
+        stack_vector = torch.stack(vectors, axis=1)
+        pool_views, _ = torch.max(stack_vector, 1)
+        
+        front_logits = self.linear(vectors[0])
+        lat_logits = self.linear(vectors[1])
+        both_logits = self.linear(pool_views)
+        
+        if mode in ['train']:
+            return front_logits, lat_logits, both_logits
+        
+        pred = self.sigmoid(both_logits)
+        return pred    
     
 ########################################## CBAM Version ##########################################
     
@@ -319,4 +370,64 @@ class DenseNet121_CBAM(nn.Module):
         else:
             x = self.densenet121(x)
             x = nn.Sigmoid()(x)
+        return x
+    
+    
+class DenseNet161_CBAM_longer_classifier(nn.Module):
+    """Model modified.
+    The architecture of our model is the same as standard DenseNet161
+    except the classifier layer which has an additional sigmoid function.
+    """
+    def __init__(self, out_size):
+        super(DenseNet161_CBAM_longer_classifier, self).__init__()
+        # self.densenet161 = torchvision.models.densenet161(pretrained = False) # `pretrained=False` is deprecated
+        self.weights = torchvision.models.DenseNet161_Weights.DEFAULT
+        self.densenet161 = torchvision.models.densenet161(weights=self.weights)
+        for block in self.densenet161.features.children():
+            if isinstance(block, torchvision.models.densenet._DenseBlock):
+                for i, dense_layer in enumerate(block.children()):
+                    dense_layer.add_module(f'dense_cbam', CBAM(gate_channels=dense_layer.conv2.out_channels))
+                    block.add_module(f'denselayer{i+1}', dense_layer)
+
+            elif isinstance(block, torchvision.models.densenet._Transition):
+                block.add_module(f'trans_cbam', CBAM(gate_channels=block.conv.out_channels))        
+        
+        num_ftrs = self.densenet161.classifier.in_features
+        self.densenet161.classifier = nn.Sequential(
+            nn.Linear(num_ftrs, num_ftrs//2),
+#             nn.Sigmoid()
+            nn.ReLU(), 
+            nn.Linear(num_ftrs//2, num_ftrs//4), 
+            nn.ReLU(), 
+            nn.Linear(num_ftrs//4, num_ftrs//8), 
+            nn.ReLU(), 
+            nn.Linear(num_ftrs//8, out_size)
+        )
+
+    def forward(self, x, mode='inference'):
+        if mode == 'train':
+            x = self.densenet161(x)
+        else:
+            x = self.densenet161(x)
+            x = nn.Sigmoid()(x)
+        return x
+    
+########################################## EfficientB4 Version ##########################################
+class EfficientB4(nn.Module):
+    def __init__(self, outsize):
+        super(EfficientB4, self).__init__()
+        
+        weights = torchvision.models.EfficientNet_B4_Weights.IMAGENET1K_V1
+        self.efficientnet_b4 = torchvision.models.efficientnet_b4(weights=weights)     
+        
+        # Must rebuild new nn.Linear() as a new underlying parameters
+        self.efficientnet_b4.classifier[1] = nn.Sequential(nn.Linear(in_features=self.efficientnet_b4.classifier[1].in_features,
+                                                                    out_features=outsize,
+                                                                    bias=True))
+        self.sigmoid = nn.Sigmoid()
+        
+    def forward(self, x, mode='inference'):
+        x = self.efficientnet_b4(x)
+        if mode != 'train':
+            x = self.sigmoid(x)
         return x

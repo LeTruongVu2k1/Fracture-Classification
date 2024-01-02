@@ -81,19 +81,16 @@ def train(args):
 #     u_0_test_DL_front = DataLoader(dataset=datasetTest_front, batch_size=trBatchSize*8, shuffle=True, num_workers=8, pin_memory=True)
         
     ################## Training ##################
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    device = args.device
 
     nnClassCount = 1
-    model = EfficientB4(nnClassCount).to(device) # Step 0: Initialize global model and load the model
+    model = DenseNet161(nnClassCount).to(device) # Step 0: Initialize global model and load the model
 
     # # Freeze all base layers in the "features" section of the model (the feature extractor) by setting requires_grad=False
     # for param in u_0_frontal_model.densenet121.features.parameters():
     #     param.requires_grad = False
 
-    params, records = CheXpertTrainer_Asymmetric.train(args, model, u_0_train_DL_front, u_0_val_DL_front,
-                                  nnClassCount, trMaxEpoch=epoch, checkpoint=args.checkpoint, device=device, mode=args.mode, 
-                                                       model_path=args.path, weighted_class=weighted_class, p_mixup=args.p_mixup,
-                                                       is_triple=args.is_triple)
+    params, records = CheXpertTrainer_Asymmetric.train(args, model, u_0_train_DL_front, u_0_val_DL_front, nnClassCount)
 
 
         
@@ -101,7 +98,7 @@ if __name__ == '__main__':
     now = datetime.datetime.now()
     
     parser = argparse.ArgumentParser()
-    parser.add_argument('--csv_dir', type=str, default='./Front', help='Train-validation-test .csv files as exported by read_data.py')
+    parser.add_argument('--csv_dir', type=str, default='./csv_files/Front', help='Train-validation-test .csv files as exported by read_data.py')
     parser.add_argument('--epoch', type=int, default=5, help='Number of epoch', required=True)
     parser.add_argument('--batchsize', '-bs', type=int, default=64, help='Train batch size', required=True)
     parser.add_argument('--val_batchsize', '-vbs', type=int, default=256, help='Val batch size', required=False)
