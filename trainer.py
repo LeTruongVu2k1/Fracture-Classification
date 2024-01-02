@@ -268,7 +268,13 @@ class CheXpertTrainer_Asymmetric():
                     outPRED = torch.FloatTensor().cpu()   
                     outGT_paths.append(f'{VAL_ROOT}/outGT_{i}.pt')
                     outPRED_paths.append(f'{VAL_ROOT}/outPRED_{i}.pt')
-                
+
+        outGT = torch.FloatTensor().cpu()
+        outPRED = torch.FloatTensor().cpu()     
+        for outGT_path, outPRED_path in zip(outGT_paths, outPRED_paths):
+            outGT = torch.cat((outGT, torch.load(outGT_path)), 0)
+            outPRED = torch.cat((outPRED, torch.load(outPRED_path)), 0)      
+            
         best_f1, best_threshold = CheXpertTrainer_Asymmetric.compute_f1_with_threshold(outGT, outPRED)
 
         return lossVal / len(dataLoaderVal), best_f1, best_threshold 

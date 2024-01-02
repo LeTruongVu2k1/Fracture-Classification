@@ -59,9 +59,9 @@ def train(args):
     epoch = args.epoch
     
     ################## Load FRONTAL dataset ##################  
-    datasetTrain_front = CheXpertDataSet_Full(f'{args.csv_dir}/u_0_train.csv', get_transforms('train', 320), policy='zeroes')
+    datasetTrain_front = CheXpertDataSet(f'{args.csv_dir}/u_0_train.csv', get_transforms('train', 320), policy='zeroes')
 #     datasetTest_front = CheXpertDataSet('u_0_test_front.csv', get_transforms('test', 320), policy='zeroes')
-    datasetVal_front = CheXpertDataSet_Full(f'{args.csv_dir}/u_0_val.csv', get_transforms('val', 320), policy='zeroes')
+    datasetVal_front = CheXpertDataSet(f'{args.csv_dir}/u_0_val.csv', get_transforms('val', 320), policy='zeroes')
 #     datasetTrain_front = CheXpertDataSet_Masking('./heart_detection/u_0_train_front_masked.pkl', args.p_masked, get_transforms('train', 320), policy='zeroes')
 #     datasetTest_front = CheXpertDataSet_Masking('./heart_detection/u_0_test_front_masked.pkl', args.p_masked, get_transforms('test', 320), policy='zeroes')
 #     datasetVal_front = CheXpertDataSet_Masking('./heart_detection/u_0_val_front_masked.pkl', args.p_masked, get_transforms('val', 320), policy='zeroes')    
