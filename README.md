@@ -20,11 +20,9 @@ python read_data.py --json_path '/content/drive/MyDrive/Colab Notebooks/kaggle_A
 - The --json_path above is an example of storing it in Gdrive, you can modify it for your case.
 - This project research on 2 case: only *Frontal X-Rays* and *Both Frontal+Lateral X-rays*. `read_data.py` will export 2 folders contains these 2 cases. 
 
-# Installation
-
 # Training
 
 ```bash
 python train.py --csv_dir ./Front --path ./frontal_checkpoints --mode frontal --p_mixup 0 --p_masked 0 \
-                --batchsize 64 --val_batchsize 256 --num_workers 8 --epoch 50
+                --batchsize 16 --val_batchsize 256 --num_workers 8 --epoch 50
 ```
