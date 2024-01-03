@@ -1,8 +1,8 @@
 from trainer import CheXpertTrainer, CheXpertTrainer_Asymmetric
-from data_loader import CheXpertDataSet, CheXpertDataSet_Masking, CheXpertDataSet_Full
+from data_loader import CheXpertDataSet, CheXpertDataSet_Masking, CheXpertDataSet_Full, CheXpertDualMoreBalancedDataSet
 import torch
 import torchvision.transforms as transforms
-from models import DenseNet121, DenseNet161, DenseNet161_CBAM, DenseNet161_CBAM_longer_classifier, EfficientB4
+from models import DenseNet121, DenseNet161, DenseNet161_CBAM, DenseNet161_CBAM_longer_classifier, EfficientB4, DenseNet161_trick
 from torch.utils.data import DataLoader
 import albumentations.augmentations.transforms as albu
 import albumentations.augmentations.crops 
@@ -53,15 +53,20 @@ def get_transforms(phase, image_size):
                 albumentations.augmentations.crops.CenterCrop(image_size, image_size),
                 albu.Normalize(mean=(0.485), std=(0.229)),
                 albumentations.pytorch.transforms.ToTensorV2()
-            ])
+            ])  
         
 def train(args):
     epoch = args.epoch
     
     ################## Load FRONTAL dataset ##################  
-    datasetTrain_front = CheXpertDataSet(f'{args.csv_dir}/u_0_train.csv', get_transforms('train', 320), policy='zeroes')
-#     datasetTest_front = CheXpertDataSet('u_0_test_front.csv', get_transforms('test', 320), policy='zeroes')
-    datasetVal_front = CheXpertDataSet(f'{args.csv_dir}/u_0_val.csv', get_transforms('val', 320), policy='zeroes')
+    if 'frontal' in args.mode:
+        datasetTrain = CheXpertDataSet(f'{args.csv_dir}/u_0_train.csv', get_transforms('train', 320), policy='zeroes')
+    #     datasetTest = CheXpertDataSet('u_0_test.csv', get_transforms('test', 320), policy='zeroes')
+        datasetVal = CheXpertDataSet(f'{args.csv_dir}/u_0_val.csv', get_transforms('val', 320), policy='zeroes')
+    else:
+        datasetTrain = CheXpertDualMoreBalancedDataSet(f'{args.csv_dir}/u_0_train.csv', get_transforms('train', 320), policy='zeroes')
+    #     datasetTest = CheXpertDataSet('u_0_test.csv', get_transforms('test', 320), policy='zeroes')
+        datasetVal = CheXpertDualMoreBalancedDataSet(f'{args.csv_dir}/u_0_val.csv', get_transforms('val', 320), policy='zeroes') 
 #     datasetTrain_front = CheXpertDataSet_Masking('./heart_detection/u_0_train_front_masked.pkl', args.p_masked, get_transforms('train', 320), policy='zeroes')
 #     datasetTest_front = CheXpertDataSet_Masking('./heart_detection/u_0_test_front_masked.pkl', args.p_masked, get_transforms('test', 320), policy='zeroes')
 #     datasetVal_front = CheXpertDataSet_Masking('./heart_detection/u_0_val_front_masked.pkl', args.p_masked, get_transforms('val', 320), policy='zeroes')    
@@ -69,28 +74,33 @@ def train(args):
     ################## weighted loss ##################
     weighted_class = dict()
     if args.weighted_score:        
-        weighted_class['pos_label'] = 0.5 * len(datasetTrain_front) / (datasetTrain_front.labels == 1).sum() 
-        weighted_class['neg_label'] = 0.5 * len(datasetTrain_front) / (datasetTrain_front.labels == 0).sum()
+        weighted_class['pos_label'] = 0.5 * len(datasetTrain) / (datasetTrain.labels == 1).sum() 
+        weighted_class['neg_label'] = 0.5 * len(datasetTrain) / (datasetTrain.labels == 0).sum()
         print(f"Pos-label's weight: {weighted_class['pos_label']}")
         print(f"Neg-label's weight: {weighted_class['neg_label']}")
         
     ################## Initializing DataLoader ##################
     trBatchSize = args.batchsize
-    u_0_train_DL_front = DataLoader(dataset=datasetTrain_front, batch_size=trBatchSize, shuffle=True, num_workers=args.num_workers, pin_memory=True)
-    u_0_val_DL_front = DataLoader(dataset=datasetVal_front, batch_size=512, shuffle=True, num_workers=args.num_workers, pin_memory=True)
+    u_0_train_DL = DataLoader(dataset=datasetTrain, batch_size=trBatchSize, shuffle=True, num_workers=args.num_workers, pin_memory=True)
+    u_0_val_DL = DataLoader(dataset=datasetVal, batch_size=512, shuffle=True, num_workers=args.num_workers, pin_memory=True)
 #     u_0_test_DL_front = DataLoader(dataset=datasetTest_front, batch_size=trBatchSize*8, shuffle=True, num_workers=8, pin_memory=True)
         
     ################## Training ##################
     device = args.device
 
     nnClassCount = 1
-    model = DenseNet161(nnClassCount).to(device) # Step 0: Initialize global model and load the model
 
+    model_dict = {'frontal_CBAM': DenseNet161_CBAM(nnClassCount),
+                 'frontal_nor': DenseNet161(nnClassCount),
+                 'dual': DenseNet161_trick(nnClassCount)}
+    
+    model = model_dict[args.mode].to(device)
     # # Freeze all base layers in the "features" section of the model (the feature extractor) by setting requires_grad=False
     # for param in u_0_frontal_model.densenet121.features.parameters():
     #     param.requires_grad = False
 
-    params, records = CheXpertTrainer_Asymmetric.train(args, model, u_0_train_DL_front, u_0_val_DL_front, nnClassCount)
+    params, records = CheXpertTrainer_Asymmetric.train(args, model, u_0_train_DL, u_0_val_DL, nnClassCount)
+
 
 
         
@@ -104,7 +114,7 @@ if __name__ == '__main__':
     parser.add_argument('--val_batchsize', '-vbs', type=int, default=256, help='Val batch size', required=False)
     parser.add_argument('--num_workers', type=int, default=8, help='Self-explained', required=False)
     parser.add_argument('--path', '-p', type=str, default='./', help="Path for saving best model's checkpoint", required=True)
-    parser.add_argument('--mode', '-m', type=str, default='checkpoint'+str(now), help="Mode of model", required=True)
+    parser.add_argument('--mode', '-m', type=str, default='frontal_nor', choices=['frontal_nor', 'frontal_CBAM', 'dual'], help="Mode of model", required=True)
     parser.add_argument('-device', type=str, default='cuda', help='Self-explained')
     parser.add_argument('--checkpoint', '-cp', type=str, default=None, help="Path of checkpoint for continuing training")
     parser.add_argument('--weighted_score', type=bool, default=False, help="Whether to use weighted-class technique in BCE loss function or not")
