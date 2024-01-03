@@ -58,7 +58,7 @@ def get_transforms(phase, image_size):
 def train(args):
     epoch = args.epoch
     
-    ################## Load FRONTAL dataset ##################  
+    ################## Load dataset ##################  
     if 'frontal' in args.mode:
         datasetTrain = CheXpertDataSet(f'{args.csv_dir}/u_0_train.csv', get_transforms('train', 320), policy='zeroes')
     #     datasetTest = CheXpertDataSet('u_0_test.csv', get_transforms('test', 320), policy='zeroes')

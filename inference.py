@@ -1,5 +1,5 @@
 from trainer import CheXpertTrainer, CheXpertTrainer_Asymmetric
-from data_loader import CheXpertDataSet, CheXpertDataSet_Masking, CheXpertDataSet_Full
+from data_loader import CheXpertDataSet, CheXpertDataSet_Masking, CheXpertDataSet_Full, CheXpertDualMoreBalancedDataSet
 import torch
 import torchvision.transforms as transforms
 from models import DenseNet121, DenseNet161, DenseNet161_CBAM, DenseNet161_CBAM_longer_classifier, EfficientB4, DenseNet161_trick
@@ -58,12 +58,13 @@ def get_transforms(phase, image_size):
                 albumentations.pytorch.transforms.ToTensorV2()
             ])
         
-def inference(args):
-    epoch = args.epoch
-    
-    ################## Load FRONTAL dataset ##################  
-    datasetTest = CheXpertDataSet(f'{args.csv_dir}/u_0_test.csv', get_transforms('train', 320), policy='zeroes')
-        
+def inference(args):    
+    ################## Load dataset ##################  
+    if 'frontal' in args.mode:
+        datasetTest = CheXpertDataSet(f'{args.in_path}', get_transforms('train', 320), policy='zeroes')
+    else:
+        datasetTest = CheXpertDualMoreBalancedDataSet(f'{args.in_path}', get_transforms('train', 320), policy='zeroes')
+
     ################## Initializing DataLoader ##################
     trBatchSize = args.batchsize
     u_0_test_DL = DataLoader(dataset=datasetTest, batch_size=trBatchSize, shuffle=False, num_workers=args.num_workers, pin_memory=True)
@@ -95,7 +96,7 @@ def inference(args):
             outGT = torch.cat((outGT, varTarget.cpu()), 0)
             outPRED = torch.cat((outPRED, varOutput.cpu()), 0)
             
-    test_df = pd.read_csv(f'{args.csv_dir}/u_0_test.csv')
+    test_df = pd.read_csv(f'{args.in_path}')
     test_df['Logits'] = outPRED
 
     best_f1, best_threshold = CheXpertTrainer_Asymmetric.compute_f1_with_threshold(outGT, outPRED)
@@ -105,7 +106,7 @@ def inference(args):
 
     test_df.to_csv(f'{args.out_path}/out.csv', index=False)
 
-    print('best_f1')
+    print(f'Best f1: {best_f1}')
 
 
         
@@ -113,16 +114,16 @@ if __name__ == '__main__':
     now = datetime.datetime.now()
     
     parser = argparse.ArgumentParser()
-    parser.add_argument('--csv_dir', type=str, default='./csv_files/Front', help='Train-validation-test .csv files as exported by read_data.py')
+    parser.add_argument('--in_path', '-i', type=str, default='./csv_files/Front/u_0_test.csv', help='Train-validation-test .csv files as exported by read_data.py')
     parser.add_argument('--batchsize', '-bs', type=int, default=64, help='Test batch size', required=True)
     parser.add_argument('--num_workers', type=int, default=8, help='Self-explained', required=False)
     parser.add_argument('--mode', '-m', type=str, default='checkpoint'+str(now), help="Mode of model", required=True)
-    parser.add_argument('-device', type=str, default='cuda', help='Self-explained')
+    parser.add_argument('--device', type=str, default='cuda', help='Self-explained')
     parser.add_argument('--checkpoint', '-cp', type=str, default=None, help="Path of checkpoint for continuing training")
     parser.add_argument('--out_path', '-o', type=str, default='./', help='Out path of csv file')
     args = parser.parse_args()
     
-    train(args)
+    inference(args)
 
 
     
