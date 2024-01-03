@@ -23,6 +23,7 @@ python read_data.py --json_path '/content/drive/MyDrive/Colab Notebooks/kaggle_A
 # Training
 
 ```bash
+<<<<<<< HEAD
 python train.py --csv_dir ./Front --path ./frontal_checkpoints --mode frontal_CBAM --p_mixup 0 --p_masked 0 \
                 --batchsize 16 --val_batchsize 256 --num_workers 8 --epoch 50
 ```
@@ -61,3 +62,8 @@ python train.py --csv_dir ./Front --path ./frontal_checkpoints --mode frontal_CB
 
 - Setting `--mode` to `dual` to use this version.
   
+=======
+python train.py --csv_dir ./Front --path ./frontal_checkpoints --mode frontal --p_mixup 0 --p_masked 0 \
+                --batchsize 16 --val_batchsize 256 --num_workers 8 --epoch 50
+```
+>>>>>>> 5c7b97c07e66d66129c3bcced76bb91e2f89ad26
